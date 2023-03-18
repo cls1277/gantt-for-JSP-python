@@ -1,0 +1,62 @@
+{
+  "packages": [
+    {
+      "start": 0,
+      "end": 10,
+      "machine": 3,
+      "job": 5
+    },
+    {
+      "start": 0,
+      "end": 12,
+      "machine": 2,
+      "job": 1
+    },
+    {
+      "start": 0,
+      "end": 4,
+      "machine": 1,
+      "job": 4
+    },
+    {
+      "start": 12,
+      "end": 16,
+      "machine": 2,
+      "job": 4
+    },
+    {
+      "start": 12,
+      "end": 19,
+      "machine": 1,
+      "job": 1
+    },
+    {
+      "start": 16,
+      "end": 22,
+      "machine": 3,
+      "job": 4
+    },
+    {
+      "start": 19,
+      "end": 25,
+      "machine": 1,
+      "job": 5
+    },
+    {
+      "start": 22,
+      "end": 36,
+      "machine": 3,
+      "job": 1
+    },
+    {
+      "start": 25,
+      "end": 37,
+      "machine": 2,
+      "job": 5
+    }
+  ],
+"title" : "GANTT for JSP",
+"xlabel" : "time",
+"machines": 3,
+"jobs": 5
+}
