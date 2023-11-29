@@ -136,16 +136,23 @@ class Gantt():
         if self.xticks:
             plt.xticks(self.xticks, map(str, self.xticks))
 
+    # def randomColor(self):
+    #     colorArr = ['1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
+    #     while True:
+    #         color = ""
+    #         for i in range(6):
+    #             color += colorArr[random.randint(0,14)]
+    #         colorint = int(color, 16)
+    #         if colorint < 8388607.5:
+    #             break
+    #     return "#"+color
+
     def randomColor(self):
-        colorArr = ['1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
-        while True:
-            color = ""
-            for i in range(6):
-                color += colorArr[random.randint(0,14)]
-            colorint = int(color, 16)
-            if colorint > 8388607.5:
-                break
-        return "#"+color
+        red = random.randint(150, 255)
+        green = random.randint(150, 255)
+        blue = random.randint(150, 255)
+        color_hex = "#{:02X}{:02X}{:02X}".format(red, green, blue)
+        return color_hex
 
     def render(self):
         """ Prepare data for plotting

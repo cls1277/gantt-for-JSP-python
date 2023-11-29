@@ -14,7 +14,7 @@
 
 #### 使用方法
 
-使用```pip```指令下载运行所必要的包
+使用```pip```指令下载运行所必要的包，python版本 3.10
 
 ```bash
 pip install -r requirements.txt
