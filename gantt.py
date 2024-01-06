@@ -1,206 +1,112 @@
-"""
-Gantt.py is a simple class to render Gantt charts, as commonly used in
-"""
-
 import json
 from operator import sub
-
 import numpy as np
 import matplotlib.pyplot as plt
 import random
 import matplotlib.patches as mpatches
 
-class Package():
-    """Encapsulation of a work package
+def load_data(data_file):
+    with open(data_file) as fh:
+        data = json.load(fh)
 
-    A work package is instantiated from a dictionary. It **has to have**
-    a label, astart and an end. Optionally it may contain milestones
-    and a color
+    packages = []
+    machine = [pkg['machine'] for pkg in data['packages']]
+    job = [pkg['job'] for pkg in data['packages']]
+    title = data.get('title', 'Gantt for JSP')
+    xticks = data.get('xticks', "")
+    machines = data.get('machines', 100)
+    labels = [f"machine-{i}" for i in range(machines)]
+    jobs = data.get('jobs', 100)
+    operations = [0] * jobs
 
-    :arg str pkg: dictionary w/ package data name
-    """
-    def __init__(self, pkg):
+    for pkg in data['packages']:
+        packages.append({
+            'start': pkg['start'],
+            'end': pkg['end'],
+            'machine': pkg['machine'],
+            'job': pkg['job'],
+            'operation': operations[pkg['job']]
+        })
+        operations[pkg['job']] += 1
 
-        self.start = pkg['start']
-        self.end = pkg['end']
-        self.machine = pkg['machine']
-        self.job = pkg['job']
+    return packages, machine, job, title, xticks, labels, machines, jobs
 
-        if self.start < 0 or self.end < 0:
-            raise ValueError("Package cannot begin at t < 0")
-        if self.start > self.end:
-            raise ValueError("Cannot end before started")
+def process_data(packages):
+    start = [pkg['start'] for pkg in packages]
+    end = [pkg['end'] for pkg in packages]
+    durations = list(map(sub, end, start))
+    ypos = np.arange(machines, 0, -1)
 
-class Gantt():
-    """Gantt
-    Class to render a simple Gantt chart, with optional milestones
-    """
-    def __init__(self, dataFile):
-        """ Instantiation
+    return start, end, durations, ypos
 
-        Create a new Gantt using the data in the file provided
-        or the sample data that came along with the script
+def random_color():
+    red = random.randint(150, 255)
+    green = random.randint(150, 255)
+    blue = random.randint(150, 255)
+    return "#{:02X}{:02X}{:02X}".format(red, green, blue)
 
-        :arg str dataFile: file holding Gantt data
-        """
-        self.dataFile = dataFile
+def render_gantt(packages, machines, start, end, ypos, jobs, xticks, labels):
+    def on_hover(event):
+        for i, rect in enumerate(rectangles):
+            if rect.contains(event)[0]:
+                rect.set_edgecolor('black')
+                rect.set_linewidth(2)
+                txt = 'job:' + str(packages[i]['job']) + '\noperation:' + str(packages[i]['operation']) + '\ntime:[' + str(packages[i]['start']) + ',' + str(packages[i]['end']) + ']'
+                text.set_text(txt)
+                for j, rect1 in enumerate(rectangles):
+                    if i == j or packages[i]['job'] != packages[j]['job']:
+                        continue
+                    rect1.set_edgecolor('red')
+                    rect1.set_linewidth(2)
+            else:
+                rect.set_edgecolor('none')
+                rect.set_linewidth(1)
+        plt.draw()
 
-        # some lists needed
-        self.packages = []
-        self.labels = []
+    fig, ax = plt.subplots()
+    ax.yaxis.grid(False)
+    ax.xaxis.grid(True)
 
-        self._loadData()
-        self._procData()
+    rectangles = []
+    text = ax.text(0.5, 1.05, '', transform=ax.transAxes, ha='center', va='center', color='black', fontsize=12)
 
-    def _loadData(self):
-        """ Load data from a JSON file that has to have the keys:
-            packages & title. Packages is an array of objects with
-            a label, start and end property and optional milesstones
-            and color specs.
-        """
+    job_colors = [random_color() for _ in range(jobs)]
+    colors = [job_colors[pkg['job']-1] for pkg in packages]
 
-        # load data
-        with open(self.dataFile) as fh:
-            data = json.load(fh)
+    for i, pkg in enumerate(packages):
+        rect = mpatches.Rectangle((start[i], machines - pkg['machine'] - 0.25),
+                                  end[i] - start[i], 0.5, facecolor=colors[i])
+        rectangles.append(rect)
+        plt.gca().add_patch(rect)
 
-        for pkg in data['packages']:
-            self.packages.append(Package(pkg))
+    plt.rc('font', family='serif', size=15)
+    # for i in range(len(start)):
+    #     plt.text((end[i] + start[i]) / 2, machines - packages[i]['machine'] - 0.05, str(job[i]))
+    for i, rect in enumerate(rectangles):
+        x_center = rect.get_x() + rect.get_width() / 2
+        y_center = rect.get_y() + rect.get_height() / 2
+        plt.text(x_center, y_center, str(job[i]), ha='center', va='center')
 
-        self.machine = [pkg['machine'] for pkg in data['packages']]
-        self.job = [pkg['job'] for pkg in data['packages']]
-        try:
-            self.title = data['title']
-        except KeyError:
-            self.title = 'Gantt for JSP'
-        try:
-            self.xticks = data['xticks']
-        except KeyError:
-            self.xticks = ""
-        try:
-            self.machines = data['machines']
-        except KeyError:
-            self.machines = 100
-        for i in range(0,self.machines):
-            self.labels.append("machine-"+str(i+1))
-        try:
-            self.jobs = data['jobs']
-        except KeyError:
-            self.jobs = 100
+    plt.tick_params(axis='both', which='both', bottom='on', top='off', left='off', right='off')
+    plt.xlim(0, max(end))
+    plt.ylim(0.5, machines + 0.5)
+    plt.yticks(ypos, labels)
+    fig.canvas.mpl_connect('motion_notify_event', on_hover)
 
-    def _procData(self):
-        """ Process data to have all values needed for plotting
-        """
-        # parameters for bars
-        self.nPackages = len(self.packages)
-        self.start = [None] * self.nPackages
-        self.end = [None] * self.nPackages
+    if xticks:
+        plt.xticks(xticks, map(str, xticks))
 
-        maxx = -1
-        for i in range(0,len(self.packages)):
-            pkg = self.packages[i]
-            idx = i
-            self.start[idx] = pkg.start
-            self.end[idx] = pkg.end
-            maxx = max(maxx, self.end[idx])
-        if maxx%2==1:
-            maxx += 1
-        self.xlabel = np.arange(0,2,maxx)
+def show_plot():
+    plt.show()
 
-        self.durations = map(sub, self.end, self.start)
-        self.yPos = np.arange(self.machines, 0, -1)
-
-    def format(self):
-        """ Format various aspect of the plot, such as labels,ticks, BBox
-        :todo: Refactor to use a settings object
-        """
-        # format axis
-        plt.tick_params(
-            axis='both',    # format x and y
-            which='both',   # major and minor ticks affected
-            bottom='on',    # bottom edge ticks are on
-            top='off',      # top, left and right edge ticks are off
-            left='off',
-            right='off')
-
-        # tighten axis but give a little room from bar height
-        plt.xlim(0, max(self.end))
-        plt.ylim(0.5, self.machines + .5)
-
-        # add title and package names
-        plt.yticks(self.yPos, self.labels)
-        plt.title(self.title)
-
-        if self.xlabel:
-            plt.xlabel(self.xlabel)
-
-        if self.xticks:
-            plt.xticks(self.xticks, map(str, self.xticks))
-
-    # def randomColor(self):
-    #     colorArr = ['1','2','3','4','5','6','7','8','9','A','B','C','D','E','F']
-    #     while True:
-    #         color = ""
-    #         for i in range(6):
-    #             color += colorArr[random.randint(0,14)]
-    #         colorint = int(color, 16)
-    #         if colorint < 8388607.5:
-    #             break
-    #     return "#"+color
-
-    def randomColor(self):
-        red = random.randint(150, 255)
-        green = random.randint(150, 255)
-        blue = random.randint(150, 255)
-        color_hex = "#{:02X}{:02X}{:02X}".format(red, green, blue)
-        return color_hex
-
-    def render(self):
-        """ Prepare data for plotting
-        """
-
-        # init figure
-        self.fig, self.ax = plt.subplots()
-        self.ax.yaxis.grid(False)
-        self.ax.xaxis.grid(True)
-
-        # assemble colors
-        jobcolors = []
-
-        for i in range(0, self.jobs):
-            jobcolors.append(self.randomColor())
-
-        colors = []
-        for i in range(0, self.nPackages):
-            colors.append(jobcolors[self.packages[i].job-1])
-
-        for i in range(0, self.nPackages):
-            rect=mpatches.Rectangle((self.start[i],self.machines-self.machine[i]+1-0.25),self.end[i]-self.start[i],0.5,facecolor=colors[i])
-            plt.gca().add_patch(rect)
-
-        plt.rc('font',family='serif', size=15)
-        for i in range(0, len(self.start)):
-            plt.text((self.end[i]+self.start[i])/2, self.machines-self.machine[i]+0.95, str(self.job[i]))
-
-        # format plot
-        self.format()
-
-    @staticmethod
-    def show():
-        """ Show the plot
-        """
-        plt.show()
-
-    @staticmethod
-    def save(saveFile='img/GANTT.png'):
-        """ Save the plot to a file. It defaults to `img/GANTT.png`.
-
-        :arg str saveFile: file to save to
-        """
-        plt.savefig(saveFile, bbox_inches='tight')
-
+# def save_plot(title, save_file='img/GANTT.png'):
+#     plt.title(title)
+#     plt.savefig(save_file, bbox_inches='tight')
 
 if __name__ == '__main__':
-    g = Gantt('sample.json')
-    g.render()
-    g.show()
-    # g.save('img/GANTT.png')
+    data_file = 'sample.json'
+    packages, machine, job, title, xticks, labels, machines, jobs = load_data(data_file)
+    start, end, durations, ypos = process_data(packages)
+    render_gantt(packages, machines, start, end, ypos, jobs, xticks, labels)
+    show_plot()
+    # save_plot(title, 'gantt.png')
